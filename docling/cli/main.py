@@ -194,6 +194,13 @@ def convert(
             help="Show version information.",
         ),
     ] = None,
+    document_timeout: Annotated[
+        Optional[int],
+        typer.Option(
+            ...,
+            help="The timeout for processing each document, in seconds.",
+        ),
+    ] = None,
 ):
     logging.basicConfig(level=logging.INFO)
 
@@ -238,6 +245,7 @@ def convert(
         do_ocr=ocr,
         ocr_options=ocr_options,
         do_table_structure=True,
+        document_timeout=document_timeout,
     )
     pipeline_options.table_structure_options.do_cell_matching = True  # do_cell_matching
     pipeline_options.table_structure_options.mode = table_mode

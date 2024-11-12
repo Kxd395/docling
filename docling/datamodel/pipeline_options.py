@@ -82,3 +82,4 @@ class PdfPipelineOptions(PipelineOptions):
     generate_page_images: bool = False
     generate_picture_images: bool = False
     generate_table_images: bool = False
+    document_timeout: Optional[int] = None
