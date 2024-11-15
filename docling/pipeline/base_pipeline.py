@@ -41,7 +41,7 @@ class BasePipeline(ABC):
             ):
                 # These steps are building and assembling the structure of the
                 # output DoclingDocument
-                conv_res = self._build_document(conv_res)
+                conv_res = self._build_document(conv_res, pdf_document_timeout=self.pipeline_options.document_timeout)
                 conv_res = self._assemble_document(conv_res)
                 # From this stage, all operations should rely only on conv_res.output
                 conv_res = self._enrich_document(conv_res)
@@ -54,7 +54,7 @@ class BasePipeline(ABC):
         return conv_res
 
     @abstractmethod
-    def _build_document(self, conv_res: ConversionResult) -> ConversionResult:
+    def _build_document(self, conv_res: ConversionResult, pdf_document_timeout=None) -> ConversionResult:
         pass
 
     def _assemble_document(self, conv_res: ConversionResult) -> ConversionResult:
@@ -115,7 +115,7 @@ class PaginatedPipeline(BasePipeline):  # TODO this is a bad name.
 
         yield from page_batch
 
-    def _build_document(self, conv_res: ConversionResult) -> ConversionResult:
+    def _build_document(self, conv_res: ConversionResult, pdf_document_timeout=None) -> ConversionResult:
 
         if not isinstance(conv_res.input._backend, PdfDocumentBackend):
             raise RuntimeError(
@@ -126,6 +126,7 @@ class PaginatedPipeline(BasePipeline):  # TODO this is a bad name.
             # conv_res.status = ConversionStatus.FAILURE
             # return conv_res
 
+        start_time = time.time()
         with TimeRecorder(conv_res, "doc_build", scope=ProfilingScope.DOCUMENT):
 
             for i in range(0, conv_res.input.page_count):
@@ -137,6 +138,13 @@ class PaginatedPipeline(BasePipeline):  # TODO this is a bad name.
                     conv_res.pages, settings.perf.page_batch_size
                 ):
                     start_pb_time = time.time()
+                    elapsed_time = start_pb_time - start_time
+                    if pdf_document_timeout is not None and elapsed_time > pdf_document_timeout:
+                        _log.warning(
+                            f"Document processing time ({int(elapsed_time)} s) exceeded the specified timeout of {pdf_document_timeout} s"
+                        )
+                        conv_res.status = ConversionStatus.PARTIAL_SUCCESS
+                        break
 
                     # 1. Initialise the page resources
                     init_pages = map(
